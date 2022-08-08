@@ -70,10 +70,6 @@
 //
 //______________________________________________________________________________
 
-#include <nlohmann/json.hpp>
-
-
-
 #include "TJSONFile.h"
 
 #include "TROOT.h"
