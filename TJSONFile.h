@@ -14,7 +14,6 @@
 #include "TFile.h"
 #include "Compression.h"
 #include <memory>
-#include <nlohmann/json.hpp>
 
 class TKeyJSON;
 class TStreamerElement;

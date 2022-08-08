@@ -86,6 +86,7 @@
 #include "TVirtualMutex.h"
 
 #include <memory>
+#include <nlohmann/json.hpp>
 
 ClassImp(TJSONFile);
 
@@ -255,7 +256,8 @@ void TJSONFile::InitJsonFile(Bool_t create)
    fClassIndex->Reset(0);
 
    if (create) {
-      fDoc = nullptr;
+
+      fDoc = new nlohmann::json();
       // fDoc = fXML->NewDoc();
       // XMLNodePointer_t fRootNode = fXML->NewChild(nullptr, nullptr, xmlio::Root);
       // fXML->DocSetRootElement(fDoc, fRootNode);
@@ -301,6 +303,7 @@ void TJSONFile::Close(Option_t *option)
    fWritable = kFALSE;
 
    if (fDoc) {
+      delete (nlohmann::json *) fDoc;
       // fXML->FreeDoc(fDoc);
       fDoc = nullptr;
    }
