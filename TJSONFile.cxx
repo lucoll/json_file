@@ -255,7 +255,7 @@ void TJSONFile::InitJsonFile(Bool_t create)
    fClassIndex->Reset(0);
 
    if (create) {
-      fDoc.clear();
+      fDoc = nullptr;
       // fDoc = fXML->NewDoc();
       // XMLNodePointer_t fRootNode = fXML->NewChild(nullptr, nullptr, xmlio::Root);
       // fXML->DocSetRootElement(fDoc, fRootNode);
@@ -300,9 +300,9 @@ void TJSONFile::Close(Option_t *option)
 
    fWritable = kFALSE;
 
-   if (!fDoc.empty()) {
-      fDoc.clear();
+   if (fDoc) {
       // fXML->FreeDoc(fDoc);
+      fDoc = nullptr;
    }
 
    if (fClassIndex) {
@@ -352,7 +352,7 @@ TJSONFile::~TJSONFile()
 
 Bool_t TJSONFile::IsOpen() const
 {
-   return !fDoc.empty();
+   return fDoc != nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -441,7 +441,7 @@ void TJSONFile::SaveToFile()
    if (gDebug > 0)
       Info("SaveToFile", "File: %s", fRealName.Data());
 
-   if (fDoc.empty())
+   if (!fDoc)
       return;
 
    /*
