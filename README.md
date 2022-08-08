@@ -3,7 +3,7 @@
 
 1. Checkout repository
 
-git clone ...
+    git clone ...
 
 2. Configure ROOT on your machine
 
