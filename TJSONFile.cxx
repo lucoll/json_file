@@ -88,6 +88,8 @@
 #include <memory>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <iostream>
+
 
 ClassImp(TJSONFile);
 
@@ -492,7 +494,7 @@ void TJSONFile::SaveToFile()
 
    // CombineNodesTree(this, fRootNode, kTRUE);
 
-   // WriteStreamerInfo();
+   WriteStreamerInfo();
 
    // if (fStreamerInfoNode)
    //   fXML->AddChild(fRootNode, fStreamerInfoNode);
@@ -657,7 +659,7 @@ Int_t TJSONFile::ReadKeysList(TDirectory *dir, void *topnode)
 void TJSONFile::WriteStreamerInfo()
 {
    if (fStreamerInfoNode) {
-      // fXML->FreeNode(fStreamerInfoNode);
+      delete (nlohmann::json *) fStreamerInfoNode;
       fStreamerInfoNode = nullptr;
    }
 
@@ -672,35 +674,41 @@ void TJSONFile::WriteStreamerInfo()
 
    while ((info = (TStreamerInfo *)iter()) != nullptr) {
       Int_t uid = info->GetNumber();
-      if (fClassIndex->fArray[uid])
+      if (fClassIndex->fArray[uid] || true) // just for debugging add all existing streamer infos
          list.Add(info);
    }
 
    if (list.GetSize() == 0)
       return;
 
-   /*
-   fStreamerInfoNode = fXML->NewChild(nullptr, nullptr, xmlio::SInfos);
+   fStreamerInfoNode = new nlohmann::json();
+
+   auto &infos_array = *((nlohmann::json *) fStreamerInfoNode);
+   infos_array = nlohmann::json::array();
+
    for (int n = 0; n <= list.GetLast(); n++) {
       info = (TStreamerInfo *)list.At(n);
 
-      XMLNodePointer_t infonode = fXML->NewChild(fStreamerInfoNode, nullptr, "TStreamerInfo");
+      nlohmann::json infonode = nlohmann::json::object();
 
-      fXML->NewAttr(infonode, nullptr, "name", info->GetName());
-      fXML->NewAttr(infonode, nullptr, "title", info->GetTitle());
+      infonode["name"] = info->GetName();
+      infonode["title"] = info->GetTitle();
 
-      fXML->NewIntAttr(infonode, "v", info->IsA()->GetClassVersion());
-      fXML->NewIntAttr(infonode, "classversion", info->GetClassVersion());
-      fXML->NewAttr(infonode, nullptr, "canoptimize",
-                    (info->TestBit(TStreamerInfo::kCannotOptimize) ? xmlio::False : xmlio::True));
-      fXML->NewIntAttr(infonode, "checksum", info->GetCheckSum());
+      //fXML->NewIntAttr(infonode, "v", info->IsA()->GetClassVersion());
+      //fXML->NewIntAttr(infonode, "classversion", info->GetClassVersion());
+      //fXML->NewAttr(infonode, nullptr, "canoptimize",
+      //              (info->TestBit(TStreamerInfo::kCannotOptimize) ? xmlio::False : xmlio::True));
+      //fXML->NewIntAttr(infonode, "checksum", info->GetCheckSum());
 
-      TIter iter2(info->GetElements());
-      TStreamerElement *elem = nullptr;
-      while ((elem = (TStreamerElement *)iter2()) != nullptr)
-         StoreStreamerElement(infonode, elem);
+      //TIter iter2(info->GetElements());
+      //TStreamerElement *elem = nullptr;
+      //while ((elem = (TStreamerElement *)iter2()) != nullptr)
+      //   StoreStreamerElement(infonode, elem);
+
+      infos_array.push_back(infonode);
    }
-   */
+
+   (*((nlohmann::json *) fDoc))["streamerinfos"] = infos_array;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
