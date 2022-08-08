@@ -114,7 +114,7 @@ protected:
 
    static void ProduceFileNames(const char *filename, TString &fname);
 
-   void *fDoc{nullptr}; //! JSON document
+   nlohmann::json fDoc; //! JSON document
 
    void *fStreamerInfoNode{nullptr}; //!  pointer of node with streamer info data
 
