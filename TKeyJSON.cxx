@@ -19,6 +19,60 @@
 
 #include "TKeyJSON.h"
 
+namespace jsonio {
+
+const char *Root = "root";
+const char *Setup = "setup";
+const char *ClassVersion = "version";
+const char *IOVersion = "version";
+const char *OnlyVersion = "Version";
+const char *Ptr = "ptr";
+const char *Ref = "ref";
+const char *Null = "null";
+const char *IdBase = "id";
+const char *Size = "size";
+const char *Xmlobject = "XmlObject";
+const char *Xmlkey = "XmlKey";
+const char *Cycle = "cycle";
+const char *XmlBlock = "XmlBlock";
+const char *Zip = "zip";
+const char *Object = "Object";
+const char *ObjClass = "class";
+const char *Class = "Class";
+const char *Member = "Member";
+const char *Item = "Item";
+const char *Name = "name";
+const char *Title = "title";
+const char *CreateTm = "created";
+const char *ModifyTm = "modified";
+const char *ObjectUUID = "uuid";
+const char *Type = "type";
+const char *Value = "value";
+const char *v = "v";
+const char *cnt = "cnt";
+const char *True = "true";
+const char *False = "false";
+const char *SInfos = "StreamerInfos";
+
+const char *Array = "Array";
+const char *Bool = "Bool_t";
+const char *Char = "Char_t";
+const char *Short = "Short_t";
+const char *Int = "Int_t";
+const char *Long = "Long_t";
+const char *Long64 = "Long64_t";
+const char *Float = "Float_t";
+const char *Double = "Double_t";
+const char *UChar = "UChar_t";
+const char *UShort = "UShort_t";
+const char *UInt = "UInt_t";
+const char *ULong = "ULong_t";
+const char *ULong64 = "ULong64_t";
+const char *String = "string";
+const char *CharStar = "CharStar";
+};
+
+
 #include "TBufferJSON.h"
 #include "TJSONFile.h"
 #include "TClass.h"

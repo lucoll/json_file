@@ -13,6 +13,59 @@
 
 #include "TKey.h"
 
+namespace jsonio {
+extern const char *Root;
+extern const char *Setup;
+extern const char *ClassVersion;
+extern const char *IOVersion;
+extern const char *OnlyVersion;
+extern const char *Ptr;
+extern const char *Ref;
+extern const char *Null;
+extern const char *IdBase;
+extern const char *Size;
+extern const char *Xmlobject;
+extern const char *Xmlkey;
+extern const char *Cycle;
+extern const char *XmlBlock;
+extern const char *Zip;
+extern const char *Object;
+extern const char *ObjClass;
+extern const char *Class;
+extern const char *Member;
+extern const char *Item;
+extern const char *Name;
+extern const char *Title;
+extern const char *CreateTm;
+extern const char *ModifyTm;
+extern const char *ObjectUUID;
+extern const char *Type;
+extern const char *Value;
+extern const char *v;
+extern const char *cnt;
+extern const char *True;
+extern const char *False;
+extern const char *SInfos;
+
+extern const char *Array;
+extern const char *Bool;
+extern const char *Char;
+extern const char *Short;
+extern const char *Int;
+extern const char *Long;
+extern const char *Long64;
+extern const char *Float;
+extern const char *Double;
+extern const char *UChar;
+extern const char *UShort;
+extern const char *UInt;
+extern const char *ULong;
+extern const char *ULong64;
+extern const char *String;
+extern const char *CharStar;
+}
+
+
 class TXMLFile;
 
 class TKeyJSON final : public TKey {

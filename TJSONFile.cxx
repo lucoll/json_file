@@ -86,6 +86,7 @@
 #include "TVirtualMutex.h"
 
 #include <memory>
+#include <fstream>
 #include <nlohmann/json.hpp>
 
 ClassImp(TJSONFile);
@@ -442,34 +443,28 @@ void TJSONFile::ProduceFileNames(const char *filename, TString &fname)
 void TJSONFile::SaveToFile()
 {
    if (gDebug > 0)
-      Info("SaveToFile", "File: %s", fRealName.Data());
+      Info("SaveToFile", "File: %s io %d", fRealName.Data(), GetIOVersion());
 
    if (!fDoc)
       return;
 
-   /*
+   auto &rootNode = *((nlohmann::json *) fDoc);
 
-   XMLNodePointer_t fRootNode = fXML->DocGetRootElement(fDoc);
+   rootNode = nlohmann::json::object();
 
-   fXML->FreeAttr(fRootNode, xmlio::Setup);
-   fXML->NewAttr(fRootNode, nullptr, xmlio::Setup, GetSetupAsString());
+//   if (GetIOVersion() > 1) {
 
-   fXML->FreeAttr(fRootNode, xmlio::Ref);
-   fXML->NewAttr(fRootNode, nullptr, xmlio::Ref, xmlio::Null);
-
-   if (GetIOVersion() > 1) {
-
-      fXML->FreeAttr(fRootNode, xmlio::CreateTm);
       if (TestBit(TFile::kReproducible))
-         fXML->NewAttr(fRootNode, nullptr, xmlio::CreateTm, TDatime((UInt_t) 1).AsSQLString());
+         rootNode[jsonio::CreateTm] = TDatime((UInt_t) 1).AsSQLString();
       else
-         fXML->NewAttr(fRootNode, nullptr, xmlio::CreateTm, fDatimeC.AsSQLString());
+         rootNode[jsonio::CreateTm] = fDatimeC.AsSQLString();
 
-      fXML->FreeAttr(fRootNode, xmlio::ModifyTm);
       if (TestBit(TFile::kReproducible))
-         fXML->NewAttr(fRootNode, nullptr, xmlio::ModifyTm, TDatime((UInt_t) 1).AsSQLString());
+         rootNode[jsonio::ModifyTm] = TDatime((UInt_t) 1).AsSQLString();
       else
-         fXML->NewAttr(fRootNode, nullptr, xmlio::ModifyTm, fDatimeM.AsSQLString());
+         rootNode[jsonio::ModifyTm] = fDatimeM.AsSQLString();
+
+      /*
 
       fXML->FreeAttr(fRootNode, xmlio::ObjectUUID);
       if (TestBit(TFile::kReproducible))
@@ -486,29 +481,36 @@ void TJSONFile::SaveToFile()
 
       fXML->FreeAttr(fRootNode, "file_version");
       fXML->NewIntAttr(fRootNode, "file_version", fVersion);
-   }
+*/
+//   }
+
 
    TString fname;
    ProduceFileNames(fRealName, fname);
 
-   CombineNodesTree(this, fRootNode, kTRUE);
-
-   WriteStreamerInfo();
 
 
-   if (fStreamerInfoNode)
-      fXML->AddChild(fRootNode, fStreamerInfoNode);
+   // CombineNodesTree(this, fRootNode, kTRUE);
 
-   Int_t layout = GetCompressionLevel() > 5 ? 0 : 1;
+   // WriteStreamerInfo();
 
-   fXML->SaveDoc(fDoc, fname, layout);
+   // if (fStreamerInfoNode)
+   //   fXML->AddChild(fRootNode, fStreamerInfoNode);
 
-   CombineNodesTree(this, fRootNode, kFALSE);
+   // Int_t layout = GetCompressionLevel() > 5 ? 0 : 1;
+   // fXML->SaveDoc(fDoc, fname, layout);
 
-   if (fStreamerInfoNode)
-      fXML->UnlinkNode(fStreamerInfoNode);
+   // save document
+   {
+      std::ofstream o(fname.Data());
+      o << std::setw(3) << rootNode << std::endl;
+   }
 
-*/
+   // CombineNodesTree(this, fRootNode, kFALSE);
+
+   // if (fStreamerInfoNode)
+   //    fXML->UnlinkNode(fStreamerInfoNode);
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
