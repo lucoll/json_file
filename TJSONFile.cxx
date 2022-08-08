@@ -70,6 +70,10 @@
 //
 //______________________________________________________________________________
 
+#include <nlohmann/json.hpp>
+
+
+
 #include "TJSONFile.h"
 
 #include "TROOT.h"
@@ -286,6 +290,8 @@ void TJSONFile::InitJsonFile(Bool_t create)
 
 void TJSONFile::Close(Option_t *option)
 {
+   printf("Close %d\n", IsOpen());
+
    if (!IsOpen())
       return;
 
@@ -436,11 +442,11 @@ void TJSONFile::ProduceFileNames(const char *filename, TString &fname)
 
 void TJSONFile::SaveToFile()
 {
+   if (gDebug > 0)
+      Info("SaveToFile", "File: %s", fRealName.Data());
+
    if (!fDoc)
       return;
-
-   if (gDebug > 1)
-      Info("SaveToFile", "File: %s", fRealName.Data());
 
    /*
 
@@ -630,7 +636,7 @@ Int_t TJSONFile::ReadKeysList(TDirectory *dir, void *topnode)
          TKeyJSON *key = new TKeyJSON(dir, ++fKeyCounter, keynode);
          dir->AppendKey(key);
 
-         if (gDebug > 2)
+         if (gDebug > 0)
             Info("ReadKeysList", "Add key %s from node %s", key->GetName(), fXML->GetNodeName(keynode));
 
          nkeys++;
