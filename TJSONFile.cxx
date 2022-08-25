@@ -90,9 +90,9 @@
 #include <nlohmann/json.hpp>
 #include <iostream>
 
+#include <iomanip>
 
 ClassImp(TJSONFile);
-
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Open or creates local XML file with name filename.
@@ -116,12 +116,14 @@ ClassImp(TJSONFile);
 ///
 /// TJSONFile does not support TTree objects
 
+static constexpr int kCurrentFileFormatVersion = 1;
+
 TJSONFile::TJSONFile(const char *filename, Option_t *option, const char *title, Int_t compression)
 {
    if (!gROOT)
       ::Fatal("TFile::TFile", "ROOT system not initialized");
 
-   if (filename && !strncmp(filename, "xml:", 4))
+   if (filename && !strncmp(filename, "json:", 5)) // changed to json (+1)
       filename += 4;
 
    gDirectory = nullptr;
@@ -146,7 +148,8 @@ TJSONFile::TJSONFile(const char *filename, Option_t *option, const char *title, 
    fNbytesInfo = 0;
    fProcessIDs = nullptr;
    fNProcessIDs = 0;
-   fIOVersion = TJSONFile::Class_Version();
+   //fIOVersion = TJSONFile::Class_Version();
+   fIOVersion = kCurrentFileFormatVersion;
    SetBit(kBinaryFile, kFALSE);
 
    fOption = option;
@@ -160,7 +163,8 @@ TJSONFile::TJSONFile(const char *filename, Option_t *option, const char *title, 
    Bool_t update = (fOption == "UPDATE") ? kTRUE : kFALSE;
    Bool_t read = (fOption == "READ") ? kTRUE : kFALSE;
 
-   if (!create && !recreate && !update && !read) {
+   if (!create && !recreate && !update && !read)
+   {
       read = kTRUE;
       fOption = "READ";
    }
@@ -168,13 +172,15 @@ TJSONFile::TJSONFile(const char *filename, Option_t *option, const char *title, 
    Bool_t devnull = kFALSE;
    const char *fname = nullptr;
 
-   if (!filename || !filename[0]) {
+   if (!filename || !filename[0])
+   {
       Error("TJSONFile", "file name is not specified");
       goto zombie;
    }
 
    // support dumping to /dev/null on UNIX
-   if (!strcmp(filename, "/dev/null") && !gSystem->AccessPathName(filename, kWritePermission)) {
+   if (!strcmp(filename, "/dev/null") && !gSystem->AccessPathName(filename, kWritePermission))
+   {
       devnull = kTRUE;
       create = kTRUE;
       recreate = kFALSE;
@@ -187,44 +193,55 @@ TJSONFile::TJSONFile(const char *filename, Option_t *option, const char *title, 
    gROOT->cd();
 
    fname = gSystem->ExpandPathName(filename);
-   if (fname) {
+   if (fname)
+   {
       SetName(fname);
       delete[](char *) fname;
       fname = GetName();
-   } else {
+   }
+   else
+   {
       Error("TJSONFile", "error expanding path %s", filename);
       goto zombie;
    }
 
-   if (recreate) {
+   if (recreate)
+   {
       if (!gSystem->AccessPathName(fname, kFileExists))
          gSystem->Unlink(fname);
       create = kTRUE;
       fOption = "CREATE";
    }
 
-   if (create && !devnull && !gSystem->AccessPathName(fname, kFileExists)) {
+   if (create && !devnull && !gSystem->AccessPathName(fname, kFileExists))
+   {
       Error("TJSONFile", "file %s already exists", fname);
       goto zombie;
    }
 
-   if (update) {
-      if (gSystem->AccessPathName(fname, kFileExists)) {
+   if (update)
+   {
+      if (gSystem->AccessPathName(fname, kFileExists))
+      {
          update = kFALSE;
          create = kTRUE;
       }
-      if (update && gSystem->AccessPathName(fname, kWritePermission)) {
+      if (update && gSystem->AccessPathName(fname, kWritePermission))
+      {
          Error("TJSONFile", "no write permission, could not open file %s", fname);
          goto zombie;
       }
    }
 
-   if (read) {
-      if (gSystem->AccessPathName(fname, kFileExists)) {
+   if (read)
+   {
+      if (gSystem->AccessPathName(fname, kFileExists))
+      {
          Error("TJSONFile", "file %s does not exist", fname);
          goto zombie;
       }
-      if (gSystem->AccessPathName(fname, kReadPermission)) {
+      if (gSystem->AccessPathName(fname, kReadPermission))
+      {
          Error("TJSONFile", "no read permission, could not open file %s", fname);
          goto zombie;
       }
@@ -258,13 +275,15 @@ void TJSONFile::InitJsonFile(Bool_t create)
    fClassIndex = new TArrayC(len);
    fClassIndex->Reset(0);
 
-   if (create) {
+   //fVersion = kCurrentFileFormatVersion;
+
+   if (create)
+   {
 
       fDoc = new nlohmann::json();
-      // fDoc = fXML->NewDoc();
-      // XMLNodePointer_t fRootNode = fXML->NewChild(nullptr, nullptr, xmlio::Root);
-      // fXML->DocSetRootElement(fDoc, fRootNode);
-   } else {
+   }
+   else
+   {
       ReadFromFile();
    }
 
@@ -277,7 +296,8 @@ void TJSONFile::InitJsonFile(Bool_t create)
    fNProcessIDs = 0;
    TKey *key = nullptr;
    TIter iter(fKeys);
-   while ((key = (TKey *)iter()) != nullptr) {
+   while ((key = (TKey *)iter()) != nullptr)
+   {
       if (!strcmp(key->GetClassName(), "TProcessID"))
          fNProcessIDs++;
    }
@@ -305,20 +325,16 @@ void TJSONFile::Close(Option_t *option)
 
    fWritable = kFALSE;
 
-   if (fDoc) {
-      delete (nlohmann::json *) fDoc;
-      // fXML->FreeDoc(fDoc);
+   if (fDoc)
+   {
+      delete (nlohmann::json *)fDoc;
       fDoc = nullptr;
    }
 
-   if (fClassIndex) {
+   if (fClassIndex)
+   {
       delete fClassIndex;
       fClassIndex = nullptr;
-   }
-
-   if (fStreamerInfoNode) {
-      // fXML->FreeNode(fStreamerInfoNode);
-      fStreamerInfoNode = nullptr;
    }
 
    {
@@ -331,11 +347,15 @@ void TJSONFile::Close(Option_t *option)
    TList pidDeleted;
    TIter next(fProcessIDs);
    TProcessID *pid;
-   while ((pid = (TProcessID *)next())) {
-      if (!pid->DecrementCount()) {
+   while ((pid = (TProcessID *)next()))
+   {
+      if (!pid->DecrementCount())
+      {
          if (pid != TProcessID::GetSessionProcessID())
             pidDeleted.Add(pid);
-      } else if (opt.Contains("r")) {
+      }
+      else if (opt.Contains("r"))
+      {
          pid->Clear();
       }
    }
@@ -372,7 +392,8 @@ Int_t TJSONFile::ReOpen(Option_t *mode)
    TString opt = mode;
    opt.ToUpper();
 
-   if (opt != "READ" && opt != "UPDATE") {
+   if (opt != "READ" && opt != "UPDATE")
+   {
       Error("ReOpen", "mode must be either READ or UPDATE, not %s", opt.Data());
       return 1;
    }
@@ -380,7 +401,8 @@ Int_t TJSONFile::ReOpen(Option_t *mode)
    if (opt == fOption || (opt == "UPDATE" && fOption == "CREATE"))
       return 1;
 
-   if (opt == "READ") {
+   if (opt == "READ")
+   {
       // switch to READ mode
 
       if (IsOpen() && IsWritable())
@@ -388,8 +410,9 @@ Int_t TJSONFile::ReOpen(Option_t *mode)
       fOption = opt;
 
       SetWritable(kFALSE);
-
-   } else {
+   }
+   else
+   {
       fOption = opt;
 
       SetWritable(kTRUE);
@@ -399,7 +422,7 @@ Int_t TJSONFile::ReOpen(Option_t *mode)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// create XML key, which will store object in xml structures
+/// create json key, which will store object in json structures
 
 TKey *TJSONFile::CreateKey(TDirectory *mother, const TObject *obj, const char *name, Int_t)
 {
@@ -407,7 +430,7 @@ TKey *TJSONFile::CreateKey(TDirectory *mother, const TObject *obj, const char *n
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// create XML key, which will store object in xml structures
+/// create json key, which will store object in json structures
 
 TKey *TJSONFile::CreateKey(TDirectory *mother, const void *obj, const TClass *cl, const char *name, Int_t)
 {
@@ -423,7 +446,8 @@ void TJSONFile::ProduceFileNames(const char *filename, TString &fname)
 
    Bool_t hasjsonext = kFALSE;
 
-   if (fname.Length() > 5) {
+   if (fname.Length() > 5)
+   {
       TString last = fname(fname.Length() - 5, 5);
       last.ToLower();
       hasjsonext = (last == ".json");
@@ -434,73 +458,52 @@ void TJSONFile::ProduceFileNames(const char *filename, TString &fname)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Saves xml structures to the file
-/// xml elements are kept in list of TKeyJSON objects
-/// When saving, all this elements are linked to root xml node
+/// Saves json structures to the file
+/// jsomn elements are kept in list of TKeyJSON objects
+/// When saving, all this elements are linked to root json node
 /// At the end StreamerInfo structures are added
-/// After xml document is saved, all nodes will be unlinked from root node
+/// After json document is saved, all nodes will be unlinked from root node
 /// and kept in memory.
-/// Only Close() or destructor release memory, used by xml structures
+/// Only Close() or destructor release memory, used by json structures
 
 void TJSONFile::SaveToFile()
 {
    if (gDebug > 0)
       Info("SaveToFile", "File: %s io %d", fRealName.Data(), GetIOVersion());
+      //Info("SaveToFile", "File: %s io %d", fRealName.Data(),kCurrentFileFormatVersion);
 
    if (!fDoc)
       return;
 
-   auto &rootNode = *((nlohmann::json *) fDoc);
+   auto &rootNode = *((nlohmann::json *)fDoc);
 
    rootNode = nlohmann::json::object();
 
-//   if (GetIOVersion() > 1) {
+   if (TestBit(TFile::kReproducible))
+      rootNode[jsonio::CreateTm] = TDatime((UInt_t)1).AsSQLString();
+   else
+      rootNode[jsonio::CreateTm] = fDatimeC.AsSQLString();
 
-      if (TestBit(TFile::kReproducible))
-         rootNode[jsonio::CreateTm] = TDatime((UInt_t) 1).AsSQLString();
-      else
-         rootNode[jsonio::CreateTm] = fDatimeC.AsSQLString();
+   if (TestBit(TFile::kReproducible))
+      rootNode[jsonio::ModifyTm] = TDatime((UInt_t)1).AsSQLString();
+   else
+      rootNode[jsonio::ModifyTm] = fDatimeM.AsSQLString();
 
-      if (TestBit(TFile::kReproducible))
-         rootNode[jsonio::ModifyTm] = TDatime((UInt_t) 1).AsSQLString();
-      else
-         rootNode[jsonio::ModifyTm] = fDatimeM.AsSQLString();
+   if (TestBit(TFile::kReproducible))
+      rootNode[jsonio::ObjectUUID] = TUUID("00000000-0000-0000-0000-000000000000").AsString();
+   else
+      rootNode[jsonio::ObjectUUID] = fUUID.AsString();
 
-      /*
-
-      fXML->FreeAttr(fRootNode, xmlio::ObjectUUID);
-      if (TestBit(TFile::kReproducible))
-         fXML->NewAttr(fRootNode, nullptr, xmlio::ObjectUUID, TUUID("00000000-0000-0000-0000-000000000000").AsString());
-      else
-         fXML->NewAttr(fRootNode, nullptr, xmlio::ObjectUUID, fUUID.AsString());
-
-      fXML->FreeAttr(fRootNode, xmlio::Title);
-      if (strlen(GetTitle()) > 0)
-         fXML->NewAttr(fRootNode, nullptr, xmlio::Title, GetTitle());
-
-      fXML->FreeAttr(fRootNode, xmlio::IOVersion);
-      fXML->NewIntAttr(fRootNode, xmlio::IOVersion, GetIOVersion());
-
-      fXML->FreeAttr(fRootNode, "file_version");
-      fXML->NewIntAttr(fRootNode, "file_version", fVersion);
-*/
-//   }
-
+   rootNode[jsonio::Type] = "ROOTfile";
+   rootNode["ROOTVersionCode"] = gROOT->GetVersionCode();
+   rootNode[jsonio::IOVersion] =GetIOVersion();
 
    TString fname;
    ProduceFileNames(fRealName, fname);
 
-
-
-   // CombineNodesTree(this, fRootNode, kTRUE);
+   CombineNodesTree(this, &rootNode["Keys"], kTRUE);
 
    WriteStreamerInfo();
-
-   // if (fStreamerInfoNode)
-   //   fXML->AddChild(fRootNode, fStreamerInfoNode);
-
-   // Int_t layout = GetCompressionLevel() > 5 ? 0 : 1;
-   // fXML->SaveDoc(fDoc, fname, layout);
 
    // save document
    {
@@ -508,34 +511,38 @@ void TJSONFile::SaveToFile()
       o << std::setw(3) << rootNode << std::endl;
    }
 
-   // CombineNodesTree(this, fRootNode, kFALSE);
-
-   // if (fStreamerInfoNode)
-   //    fXML->UnlinkNode(fStreamerInfoNode);
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Connect/disconnect all file nodes to single tree before/after saving
 
 void TJSONFile::CombineNodesTree(TDirectory *dir, void *topnode, Bool_t dolink)
-{
-   if (!dir)
-      return;
+{ 
+    if (!dir)
+       return;
 
-/*
-   TIter iter(dir->GetListOfKeys());
-   TKeyJSON *key = nullptr;
+       TIter iter(dir->GetListOfKeys());
+       TKeyJSON *key = nullptr;
+       //auto &topNodeJSON = *(nlohmann::json *)topnode;
 
-   while ((key = (TKeyJSON *)iter()) != nullptr) {
-      if (dolink)
-         fXML->AddChild(topnode, key->KeyNode());
-      else
-         fXML->UnlinkNode(key->KeyNode());
-      if (key->IsSubdir())
-         CombineNodesTree(FindKeyDir(dir, key->GetKeyId()), key->KeyNode(), dolink);
-   }
-*/
+       nlohmann::json infos_array = nlohmann::json::array();
+
+       while ((key = (TKeyJSON *)iter()) != nullptr) {
+         nlohmann::json topNodeJSON = nlohmann::json::object();
+          if (dolink){
+            
+            topNodeJSON = *(nlohmann::json *)key->KeyNode(); 
+          }
+         // else
+             //fXML->UnlinkNode(key->KeyNode());
+          if (key->IsSubdir())
+             CombineNodesTree(FindKeyDir(dir, key->GetKeyId()), key->KeyNode(), dolink);
+
+         infos_array.push_back(topNodeJSON);
+       }
+
+        (*((nlohmann::json *)topnode))= infos_array;
+    
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -546,74 +553,62 @@ void TJSONFile::CombineNodesTree(TDirectory *dir, void *topnode, Bool_t dolink)
 
 Bool_t TJSONFile::ReadFromFile()
 {
-   return kFALSE;
+   assert(!fDoc && "Expect fDoc == nullptr!");
 
-/*
-   fDoc = fXML->ParseFile(fRealName);
-   if (!fDoc)
-      return kFALSE;
-
-   XMLNodePointer_t fRootNode = fXML->DocGetRootElement(fDoc);
-
-   if (!fRootNode || !fXML->ValidateVersion(fDoc)) {
-      fXML->FreeDoc(fDoc);
-      fDoc = nullptr;
-      return kFALSE;
-   }
-
-   ReadSetupFromStr(fXML->GetAttr(fRootNode, xmlio::Setup));
-
-   if (fXML->HasAttr(fRootNode, xmlio::CreateTm)) {
-      TDatime tm(fXML->GetAttr(fRootNode, xmlio::CreateTm));
-      fDatimeC = tm;
-   }
-
-   if (fXML->HasAttr(fRootNode, xmlio::ModifyTm)) {
-      TDatime tm(fXML->GetAttr(fRootNode, xmlio::ModifyTm));
-      fDatimeM = tm;
-   }
-
-   if (fXML->HasAttr(fRootNode, xmlio::ObjectUUID)) {
-      TUUID id(fXML->GetAttr(fRootNode, xmlio::ObjectUUID));
-      fUUID = id;
-   }
-
-   if (fXML->HasAttr(fRootNode, xmlio::Title))
-      SetTitle(fXML->GetAttr(fRootNode, xmlio::Title));
-
-   if (fXML->HasAttr(fRootNode, xmlio::IOVersion))
-      fIOVersion = fXML->GetIntAttr(fRootNode, xmlio::IOVersion);
-   else
-      fIOVersion = 1;
-
-   if (fXML->HasAttr(fRootNode, "file_version"))
-      fVersion = fXML->GetIntAttr(fRootNode, "file_version");
-
-   fStreamerInfoNode = fXML->GetChild(fRootNode);
-   fXML->SkipEmpty(fStreamerInfoNode);
-   while (fStreamerInfoNode) {
-      if (strcmp(xmlio::SInfos, fXML->GetNodeName(fStreamerInfoNode)) == 0)
-         break;
-      fXML->ShiftToNext(fStreamerInfoNode);
-   }
-   fXML->UnlinkNode(fStreamerInfoNode);
-
-   if (fStreamerInfoNode)
-      ReadStreamerInfo();
-
-   if (IsUseDtd())
-      if (!fXML->ValidateDocument(fDoc, gDebug > 0)) {
-         fXML->FreeDoc(fDoc);
-         fDoc = nullptr;
-         return kFALSE;
+   std::ifstream file(fRealName.Data());
+   if (file.good())
+   {
+      try
+      {
+         fDoc = (void *)new nlohmann::json(nlohmann::json::parse(file));
       }
+      catch (nlohmann::detail::parse_error const &e)
+      {
+         throw std::runtime_error(e.what());
+      }
+      auto &rootNode = *((nlohmann::json *)fDoc);
+      if (!rootNode.contains(jsonio::Type))
+         throw std::runtime_error("File does not have a type.");
+      else if (rootNode[jsonio::Type] != "ROOTfile")
+         throw std::runtime_error("Not a ROOT File.");
+      else if (rootNode[jsonio::IOVersion] > kCurrentFileFormatVersion)
+         throw std::runtime_error("File version not compatible.");
+      else
+      {
+         TString fType = rootNode[jsonio::Type].get<std::string>();
+         long int versionOfROOT = rootNode["ROOTVersionCode"].get<long int>();
+         fIOVersion = rootNode[jsonio::IOVersion].get<int>();
 
-   ReadKeysList(this, fRootNode);
+         if (rootNode.contains(jsonio::CreateTm))
+         {
+            TDatime tm(rootNode[jsonio::CreateTm].get<std::string>().c_str());
+            fDatimeC = tm;
+         }
+         if (rootNode.contains(jsonio::ModifyTm))
+         {
+            TDatime tm(rootNode[jsonio::ModifyTm].get<std::string>().c_str());
+            fDatimeM = tm;
+         }
+         if (rootNode.contains(jsonio::ObjectUUID))
+            fUUID = rootNode[jsonio::ObjectUUID].get<std::string>().c_str();
 
-   fXML->CleanNode(fRootNode);
+         if (rootNode.contains(jsonio::Title))
+            SetTitle(rootNode[jsonio::Title].get<std::string>().c_str());
 
-   return kTRUE;
-*/
+         //////////////////////////////////////////////////////////////
+
+         if (rootNode.contains("StreamerInfos"))
+            ReadStreamerInfo();
+
+          ReadKeysList(this, &rootNode);
+         std::cout << fType << "  " << fUUID.AsString() << std::endl;
+
+         return kTRUE;
+      }
+   }
+   else
+      throw std::runtime_error("File does not exist.");
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -623,34 +618,24 @@ Int_t TJSONFile::ReadKeysList(TDirectory *dir, void *topnode)
 {
    if (!dir || !topnode)
       return 0;
+         Int_t nkeys = 0;
+         auto &rootnode = *((nlohmann::json *)topnode);
+         auto &keynode = rootnode["Keys"];
 
-   return 0;
+         TList *list = new TList();
 
-/*   Int_t nkeys = 0;
+         while (keynode[nkeys].contains("Object")) {
 
-   XMLNodePointer_t keynode = fXML->GetChild(topnode);
-   fXML->SkipEmpty(keynode);
-   while (keynode) {
-      XMLNodePointer_t next = fXML->GetNext(keynode);
+               TKeyJSON *key = new TKeyJSON(dir, ++fKeyCounter, &keynode[nkeys]);
+               dir->AppendKey(key);
+               //if (gDebug > 0)
+                 // Info("ReadKeysList", "Add key %s from node %s", key->GetName(), fXML->GetNodeName(keynode));
 
-      if (strcmp(xmlio::Xmlkey, fXML->GetNodeName(keynode)) == 0) {
-         fXML->UnlinkNode(keynode);
+               nkeys++;
+         }
 
-         TKeyJSON *key = new TKeyJSON(dir, ++fKeyCounter, keynode);
-         dir->AppendKey(key);
-
-         if (gDebug > 0)
-            Info("ReadKeysList", "Add key %s from node %s", key->GetName(), fXML->GetNodeName(keynode));
-
-         nkeys++;
-      }
-
-      keynode = next;
-      fXML->SkipEmpty(keynode);
-   }
-
-   return nkeys;
-*/
+         return nkeys;
+      
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -658,10 +643,6 @@ Int_t TJSONFile::ReadKeysList(TDirectory *dir, void *topnode)
 
 void TJSONFile::WriteStreamerInfo()
 {
-   if (fStreamerInfoNode) {
-      delete (nlohmann::json *) fStreamerInfoNode;
-      fStreamerInfoNode = nullptr;
-   }
 
    if (!IsStoreStreamerInfos())
       return;
@@ -672,7 +653,8 @@ void TJSONFile::WriteStreamerInfo()
 
    TStreamerInfo *info = nullptr;
 
-   while ((info = (TStreamerInfo *)iter()) != nullptr) {
+   while ((info = (TStreamerInfo *)iter()) != nullptr)
+   {
       Int_t uid = info->GetNumber();
       if (fClassIndex->fArray[uid] || true) // just for debugging add all existing streamer infos
          list.Add(info);
@@ -681,85 +663,82 @@ void TJSONFile::WriteStreamerInfo()
    if (list.GetSize() == 0)
       return;
 
-   fStreamerInfoNode = new nlohmann::json();
+   nlohmann::json infos_array = nlohmann::json::array();
 
-   auto &infos_array = *((nlohmann::json *) fStreamerInfoNode);
-   infos_array = nlohmann::json::array();
-
-   for (int n = 0; n <= list.GetLast(); n++) {
+   for (int n = 0; n <= list.GetLast(); n++)
+   {
       info = (TStreamerInfo *)list.At(n);
 
       nlohmann::json infonode = nlohmann::json::object();
 
       infonode["name"] = info->GetName();
       infonode["title"] = info->GetTitle();
+      infonode["classversion"] = info->GetClassVersion();
+      infonode["checksum"] = info->GetCheckSum();
+      infonode["canoptimize"]=(info->TestBit(TStreamerInfo::kCannotOptimize) ? jsonio::False : jsonio::True);
 
-      //fXML->NewIntAttr(infonode, "v", info->IsA()->GetClassVersion());
-      //fXML->NewIntAttr(infonode, "classversion", info->GetClassVersion());
-      //fXML->NewAttr(infonode, nullptr, "canoptimize",
-      //              (info->TestBit(TStreamerInfo::kCannotOptimize) ? xmlio::False : xmlio::True));
-      //fXML->NewIntAttr(infonode, "checksum", info->GetCheckSum());
+      TIter iter2(info->GetElements());
+      infonode["elements"] = nlohmann::json::array();
 
-      //TIter iter2(info->GetElements());
-      //TStreamerElement *elem = nullptr;
-      //while ((elem = (TStreamerElement *)iter2()) != nullptr)
-      //   StoreStreamerElement(infonode, elem);
+      TStreamerElement *elem = nullptr;
+      while ((elem = (TStreamerElement *)iter2()) != nullptr)
+         StoreStreamerElement(&infonode, elem);
 
       infos_array.push_back(infonode);
    }
 
-   (*((nlohmann::json *) fDoc))["streamerinfos"] = infos_array;
+   (*((nlohmann::json *)fDoc))["StreamerInfos"] = infos_array;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Read streamerinfo structures from xml format and provide them in the list
+/// Read streamerinfo structures from json format and provide them in the list
 /// It is user responsibility to destroy this list
 
 TFile::InfoListRet TJSONFile::GetStreamerInfoListImpl(bool /* lookupSICache */)
 {
    ROOT::Internal::RConcurrentHashColl::HashValue hash;
 
-   if (!fStreamerInfoNode)
-      return {nullptr, 1, hash};
+   auto &rootNode = *((nlohmann::json *)fDoc);
+   auto &sinfonode= rootNode["StreamerInfos"];
+
 
    TList *list = new TList();
+int i=0;
+      while (sinfonode[i].contains("name")) {
 
-/*
-   XMLNodePointer_t sinfonode = fXML->GetChild(fStreamerInfoNode);
-   fXML->SkipEmpty(sinfonode);
+            TString fname = sinfonode[i]["name"].get<std::string>();
+            TString ftitle = sinfonode[i]["title"].get<std::string>();
 
-   while (sinfonode) {
-      if (strcmp("TStreamerInfo", fXML->GetNodeName(sinfonode)) == 0) {
-         TString fname = fXML->GetAttr(sinfonode, "name");
-         TString ftitle = fXML->GetAttr(sinfonode, "title");
+            TStreamerInfo *info = new TStreamerInfo(TClass::GetClass(fname));
+            info->SetTitle(ftitle);
 
-         TStreamerInfo *info = new TStreamerInfo(TClass::GetClass(fname));
-         info->SetTitle(ftitle);
+            list->Add(info);
 
-         list->Add(info);
+            Int_t clversion = sinfonode[i]["classversion"].get<int>();
+            info->SetClassVersion(clversion);
+            info->SetOnFileClassVersion(clversion);
+            Int_t checksum = sinfonode[i]["checksum"].get<int>();
+            info->SetCheckSum(checksum);
 
-         Int_t clversion = AtoI(fXML->GetAttr(sinfonode, "classversion"));
-         info->SetClassVersion(clversion);
-         info->SetOnFileClassVersion(clversion);
-         Int_t checksum = AtoI(fXML->GetAttr(sinfonode, "checksum"));
-         info->SetCheckSum(checksum);
+            const char *canoptimize = sinfonode[i]["canoptimize"].get<std::string>().c_str();
 
-         const char *canoptimize = fXML->GetAttr(sinfonode, "canoptimize");
-         if (!canoptimize || (strcmp(canoptimize, xmlio::False) == 0))
-            info->SetBit(TStreamerInfo::kCannotOptimize);
-         else
-            info->ResetBit(TStreamerInfo::kCannotOptimize);
+            if (!canoptimize || (strcmp(canoptimize, jsonio::False) == 0))
+               info->SetBit(TStreamerInfo::kCannotOptimize);
+            else
+               info->ResetBit(TStreamerInfo::kCannotOptimize);
 
-         XMLNodePointer_t node = fXML->GetChild(sinfonode);
-         fXML->SkipEmpty(node);
-         while (node) {
-            ReadStreamerElement(node, info);
-            fXML->ShiftToNext(node);
-         }
+            //auto &node=sinfonode[i]["elements"];
+
+            int j=0;
+            while (sinfonode[i]["elements"][j].contains("name")) {
+               ReadStreamerElement(&sinfonode[i]["elements"][j], info);
+               j++;
+            }
+         
+         i++;
+
       }
-      fXML->ShiftToNext(sinfonode);
-   }
-*/
+
    list->SetOwner();
 
    return {list, 0, hash};
@@ -770,124 +749,135 @@ TFile::InfoListRet TJSONFile::GetStreamerInfoListImpl(bool /* lookupSICache */)
 
 void TJSONFile::StoreStreamerElement(void *infonode, TStreamerElement *elem)
 {
-   /*
-   TClass *cl = elem->IsA();
 
-   XMLNodePointer_t node = fXML->NewChild(infonode, nullptr, cl->GetName());
+   TClass *cl = elem->IsA();
+   nlohmann::json info = nlohmann::json::object();
 
    char sbuf[100], namebuf[100];
 
-   fXML->NewAttr(node, nullptr, "name", elem->GetName());
+   info["streamerelement"] = cl->GetName(); 
+
+   info["name"] = elem->GetName();
+
    if (strlen(elem->GetTitle()) > 0)
-      fXML->NewAttr(node, nullptr, "title", elem->GetTitle());
+      info["title"] = elem->GetTitle();
 
-   fXML->NewIntAttr(node, "v", cl->GetClassVersion());
+   info["v"] = cl->GetClassVersion();
 
-   fXML->NewIntAttr(node, "type", elem->GetType());
+   info["type"] = elem->GetType();
 
    if (strlen(elem->GetTypeName()) > 0)
-      fXML->NewAttr(node, nullptr, "typename", elem->GetTypeName());
+      info["typename"] = elem->GetTypeName();
 
-   fXML->NewIntAttr(node, "size", elem->GetSize());
+   info["size"] = elem->GetSize();
 
-   if (elem->GetArrayDim() > 0) {
-      fXML->NewIntAttr(node, "numdim", elem->GetArrayDim());
+   if (elem->GetArrayDim() > 0)
+   {
+      nlohmann::json arraydim = nlohmann::json::array();
 
       for (int ndim = 0; ndim < elem->GetArrayDim(); ndim++) {
-         sprintf(namebuf, "dim%d", ndim);
-         fXML->NewIntAttr(node, namebuf, elem->GetMaxIndex(ndim));
+         arraydim.push_back(elem->GetMaxIndex(ndim));
       }
+
+      info["arraydim"] = arraydim;
+
+   }
+   if (cl == TStreamerBase::Class())
+   {
+      TStreamerBase *base = (TStreamerBase *)elem;
+      info["baseversion"] = base->GetBaseVersion();
+      info["basechecksum"] = base->GetBaseCheckSum();
+   }
+   else if (cl == TStreamerBasicPointer::Class())
+   {
+      TStreamerBasicPointer *bptr = (TStreamerBasicPointer *)elem;
+      info["countversion"] = bptr->GetCountVersion();
+      info["countname"] = bptr->GetCountName();
+      info["countclass"] = bptr->GetCountClass();
+   }
+   else if (cl == TStreamerLoop::Class())
+   {
+      TStreamerLoop *loop = (TStreamerLoop *)elem;
+      info["countversion"] = loop->GetCountVersion();
+      info["countname"] = loop->GetCountName();
+      info["countclass"] = loop->GetCountClass();
+   }
+   else if ((cl == TStreamerSTL::Class()) || (cl == TStreamerSTLstring::Class()))
+   {
+      TStreamerSTL *stl = (TStreamerSTL *)elem;
+      info["STLtype"] = stl->GetSTLtype();
+      info["Ctype"] = stl->GetCtype();
    }
 
-   if (cl == TStreamerBase::Class()) {
-      TStreamerBase *base = (TStreamerBase *)elem;
-      sprintf(sbuf, "%d", base->GetBaseVersion());
-      fXML->NewAttr(node, nullptr, "baseversion", sbuf);
-      sprintf(sbuf, "%d", base->GetBaseCheckSum());
-      fXML->NewAttr(node, nullptr, "basechecksum", sbuf);
-   } else if (cl == TStreamerBasicPointer::Class()) {
-      TStreamerBasicPointer *bptr = (TStreamerBasicPointer *)elem;
-      fXML->NewIntAttr(node, "countversion", bptr->GetCountVersion());
-      fXML->NewAttr(node, nullptr, "countname", bptr->GetCountName());
-      fXML->NewAttr(node, nullptr, "countclass", bptr->GetCountClass());
-   } else if (cl == TStreamerLoop::Class()) {
-      TStreamerLoop *loop = (TStreamerLoop *)elem;
-      fXML->NewIntAttr(node, "countversion", loop->GetCountVersion());
-      fXML->NewAttr(node, nullptr, "countname", loop->GetCountName());
-      fXML->NewAttr(node, nullptr, "countclass", loop->GetCountClass());
-   } else if ((cl == TStreamerSTL::Class()) || (cl == TStreamerSTLstring::Class())) {
-      TStreamerSTL *stl = (TStreamerSTL *)elem;
-      fXML->NewIntAttr(node, "STLtype", stl->GetSTLtype());
-      fXML->NewIntAttr(node, "Ctype", stl->GetCtype());
-   }
-*/
+   (*((nlohmann::json *)infonode))["elements"].push_back(info);
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// read and reconstruct single TStreamerElement from xml node
+/// read and reconstruct single TStreamerElement from json node
 
 void TJSONFile::ReadStreamerElement(void *node, TStreamerInfo *info)
 {
-/*
+   auto &streamernode = *((nlohmann::json *)node);
 
-   TClass *cl = TClass::GetClass(fXML->GetNodeName(node));
-   if (!cl || !cl->InheritsFrom(TStreamerElement::Class()))
-      return;
+      TClass *cl = TClass::GetClass(streamernode["streamerelement"].get<std::string>().c_str()); 
+      if (!cl || !cl->InheritsFrom(TStreamerElement::Class()))
+         return;
+      TStreamerElement *elem = (TStreamerElement *)cl->New();
 
-   TStreamerElement *elem = (TStreamerElement *)cl->New();
+      int elem_type = streamernode["type"].get<int>();
 
-   int elem_type = fXML->GetIntAttr(node, "type");
+      elem->SetName(streamernode["name"].get<std::string>().c_str());
+      elem->SetTitle(streamernode["title"].get<std::string>().c_str());
+      elem->SetType(elem_type);
+      elem->SetTypeName(streamernode["typename"].get<std::string>().c_str());
+      elem->SetSize(streamernode["size"].get<int>());
 
-   elem->SetName(fXML->GetAttr(node, "name"));
-   elem->SetTitle(fXML->GetAttr(node, "title"));
-   elem->SetType(elem_type);
-   elem->SetTypeName(fXML->GetAttr(node, "typename"));
-   elem->SetSize(fXML->GetIntAttr(node, "size"));
+      if (cl == TStreamerBase::Class()) {
+         int basever = streamernode["baseversion"].get<int>();
+         ((TStreamerBase *)elem)->SetBaseVersion(basever);
+         Int_t baseCheckSum = streamernode["basechecksum"].get<int>();
+         ((TStreamerBase *)elem)->SetBaseCheckSum(baseCheckSum);
+      } else if (cl == TStreamerBasicPointer::Class()) {
+         TString countname = streamernode["countname"].get<std::string>();
+         TString countclass = streamernode["countclass"].get<std::string>();
+         Int_t countversion = streamernode["countversion"].get<int>();
 
-   if (cl == TStreamerBase::Class()) {
-      int basever = fXML->GetIntAttr(node, "baseversion");
-      ((TStreamerBase *)elem)->SetBaseVersion(basever);
-      Int_t baseCheckSum = fXML->GetIntAttr(node, "basechecksum");
-      ((TStreamerBase *)elem)->SetBaseCheckSum(baseCheckSum);
-   } else if (cl == TStreamerBasicPointer::Class()) {
-      TString countname = fXML->GetAttr(node, "countname");
-      TString countclass = fXML->GetAttr(node, "countclass");
-      Int_t countversion = fXML->GetIntAttr(node, "countversion");
+         ((TStreamerBasicPointer *)elem)->SetCountVersion(countversion);
+         ((TStreamerBasicPointer *)elem)->SetCountName(countname);
+         ((TStreamerBasicPointer *)elem)->SetCountClass(countclass);
+      } else if (cl == TStreamerLoop::Class()) {
+         TString countname = streamernode["countname"].get<std::string>();
+         TString countclass = streamernode["countclass"].get<std::string>();
+         Int_t countversion = streamernode["countversion"].get<int>();
 
-      ((TStreamerBasicPointer *)elem)->SetCountVersion(countversion);
-      ((TStreamerBasicPointer *)elem)->SetCountName(countname);
-      ((TStreamerBasicPointer *)elem)->SetCountClass(countclass);
-   } else if (cl == TStreamerLoop::Class()) {
-      TString countname = fXML->GetAttr(node, "countname");
-      TString countclass = fXML->GetAttr(node, "countclass");
-      Int_t countversion = fXML->GetIntAttr(node, "countversion");
-      ((TStreamerLoop *)elem)->SetCountVersion(countversion);
-      ((TStreamerLoop *)elem)->SetCountName(countname);
-      ((TStreamerLoop *)elem)->SetCountClass(countclass);
-   } else if ((cl == TStreamerSTL::Class()) || (cl == TStreamerSTLstring::Class())) {
-      int fSTLtype = fXML->GetIntAttr(node, "STLtype");
-      int fCtype = fXML->GetIntAttr(node, "Ctype");
-      ((TStreamerSTL *)elem)->SetSTLtype(fSTLtype);
-      ((TStreamerSTL *)elem)->SetCtype(fCtype);
-   }
-
-   char namebuf[100];
-
-   if (fXML->HasAttr(node, "numdim")) {
-      int numdim = fXML->GetIntAttr(node, "numdim");
-      elem->SetArrayDim(numdim);
-      for (int ndim = 0; ndim < numdim; ndim++) {
-         sprintf(namebuf, "dim%d", ndim);
-         int maxi = fXML->GetIntAttr(node, namebuf);
-         elem->SetMaxIndex(ndim, maxi);
+         ((TStreamerLoop *)elem)->SetCountVersion(countversion);
+         ((TStreamerLoop *)elem)->SetCountName(countname);
+         ((TStreamerLoop *)elem)->SetCountClass(countclass);
+      } else if ((cl == TStreamerSTL::Class()) || (cl == TStreamerSTLstring::Class())) {
+         int fSTLtype = streamernode["STLtype"].get<int>();
+         int fCtype = streamernode["Ctype"].get<int>();
+         ((TStreamerSTL *)elem)->SetSTLtype(fSTLtype);
+         ((TStreamerSTL *)elem)->SetCtype(fCtype);
       }
-   }
 
-   elem->SetType(elem_type);
-   elem->SetNewType(elem_type);
+      char namebuf[100];
 
-   info->GetElements()->Add(elem);
-*/
+      if (streamernode.contains("numdim")) {
+         int numdim = streamernode["numdim"].get<int>();
+         elem->SetArrayDim(numdim);
+         for (int ndim = 0; ndim < numdim; ndim++) {
+            sprintf(namebuf, "dim%d", ndim);
+            int maxi = streamernode[namebuf].get<int>();
+            elem->SetMaxIndex(ndim, maxi);
+         }
+      }
+
+      elem->SetType(elem_type);
+      elem->SetNewType(elem_type);
+
+      info->GetElements()->Add(elem);
+   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -930,7 +920,8 @@ TKeyJSON *TJSONFile::FindDirKey(TDirectory *dir)
    TIter next(motherdir->GetListOfKeys());
    TObject *obj = nullptr;
 
-   while ((obj = next()) != nullptr) {
+   while ((obj = next()) != nullptr)
+   {
       TKeyJSON *key = dynamic_cast<TKeyJSON *>(obj);
 
       if (key)
@@ -952,7 +943,8 @@ TDirectory *TJSONFile::FindKeyDir(TDirectory *motherdir, Long64_t keyid)
    TIter next(motherdir->GetList());
    TObject *obj = nullptr;
 
-   while ((obj = next()) != nullptr) {
+   while ((obj = next()) != nullptr)
+   {
       TDirectory *dir = dynamic_cast<TDirectory *>(obj);
       if (dir)
          if (dir->GetSeekDir() == keyid)
@@ -983,7 +975,8 @@ void TJSONFile::DirWriteKeys(TDirectory *)
    TIter next(GetListOfKeys());
    TObject *obj = nullptr;
 
-   while ((obj = next()) != nullptr) {
+   while ((obj = next()) != nullptr)
+   {
       TKeyJSON *key = dynamic_cast<TKeyJSON *>(obj);
       if (key)
          key->UpdateAttributes();

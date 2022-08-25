@@ -31,10 +31,10 @@ const char *Ref = "ref";
 const char *Null = "null";
 const char *IdBase = "id";
 const char *Size = "size";
-const char *Xmlobject = "XmlObject";
-const char *Xmlkey = "XmlKey";
+const char *Jsonobject = "Jsonbject";
+const char *Jsonkey = "JsonKey";
 const char *Cycle = "cycle";
-const char *XmlBlock = "XmlBlock";
+const char *JsonBlock = "JsonBlock";
 const char *Zip = "zip";
 const char *Object = "Object";
 const char *ObjClass = "class";
@@ -77,11 +77,15 @@ const char *CharStar = "CharStar";
 #include "TJSONFile.h"
 #include "TClass.h"
 #include "TROOT.h"
+#include <nlohmann/json.hpp>
+
+#include <iostream>
+#include <fstream>
 
 ClassImp(TKeyJSON);
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Creates TKeyJSON and convert object data to xml structures
+/// Creates TKeyJSON and convert object data to json structures
 
 TKeyJSON::TKeyJSON(TDirectory *mother, Long64_t keyid, const TObject *obj, const char *name, const char *title)
    : TKey(mother), fKeyNode(nullptr), fKeyId(keyid), fSubdir(kFALSE)
@@ -99,9 +103,11 @@ TKeyJSON::TKeyJSON(TDirectory *mother, Long64_t keyid, const TObject *obj, const
 
    fCycle = GetMotherDir()->AppendKey(this);
 
-   //TXMLEngine *xml = XMLEngine();
-   //if (xml)
-   //   fKeyNode = xml->NewChild(nullptr, nullptr, xmlio::Xmlkey);
+   fKeyNode = new nlohmann::json();
+   *((nlohmann::json *) fKeyNode) = nlohmann::json::object();
+
+   // if (json)
+      //fKeyNode = xml->NewChild(nullptr, nullptr, jsonio::Jsonkey); 
 
    fDatime.Set();
 
@@ -109,7 +115,7 @@ TKeyJSON::TKeyJSON(TDirectory *mother, Long64_t keyid, const TObject *obj, const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Creates TKeyJSON and convert object data to xml structures
+/// Creates TKeyJSON and convert object data to json structures
 
 TKeyJSON::TKeyJSON(TDirectory *mother, Long64_t keyid, const void *obj, const TClass *cl, const char *name,
                  const char *title)
@@ -125,9 +131,11 @@ TKeyJSON::TKeyJSON(TDirectory *mother, Long64_t keyid, const void *obj, const TC
 
    fCycle = GetMotherDir()->AppendKey(this);
 
+   fKeyNode = new nlohmann::json();
+   *((nlohmann::json *) fKeyNode) = nlohmann::json::object();
    //TXMLEngine *xml = XMLEngine();
    //if (xml)
-   //   fKeyNode = xml->NewChild(nullptr, nullptr, xmlio::Xmlkey);
+   //   fKeyNode = xml->NewChild(nullptr, nullptr, xmlio::Xmlkey); 
 
    fDatime.Set();
 
@@ -135,30 +143,26 @@ TKeyJSON::TKeyJSON(TDirectory *mother, Long64_t keyid, const void *obj, const TC
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/// Creates TKeyJSON and takes ownership over xml node, from which object can be restored
+/// Creates TKeyJSON and takes ownership over json node, from which object can be restored
 
 TKeyJSON::TKeyJSON(TDirectory *mother, Long64_t keyid, void *keynode)
    : TKey(mother), fKeyNode(keynode), fKeyId(keyid), fSubdir(kFALSE)
 {
-/*   TXMLEngine *xml = XMLEngine();
+   //TJSONFile *json = (TJSONFile *)GetFile();
+   auto &node = *((nlohmann::json *)keynode);
 
-   SetName(xml->GetAttr(keynode, xmlio::Name));
+   SetName(node[jsonio::Name].get<std::string>().c_str());
+   if (node.contains(jsonio::Title))
+      SetTitle(node[jsonio::Title].get<std::string>().c_str());
+   fCycle = node[jsonio::Cycle].get<int>();
 
-   if (xml->HasAttr(keynode, xmlio::Title))
-      SetTitle(xml->GetAttr(keynode, xmlio::Title));
-
-   fCycle = xml->GetIntAttr(keynode, xmlio::Cycle);
-
-   if (xml->HasAttr(keynode, xmlio::CreateTm)) {
-      TDatime tm(xml->GetAttr(keynode, xmlio::CreateTm));
+   if (node.contains(jsonio::CreateTm)) {
+      TDatime tm(node[jsonio::CreateTm].get<std::string>().c_str());
       fDatime = tm;
    }
 
-   XMLNodePointer_t objnode = xml->GetChild(keynode);
-   xml->SkipEmpty(objnode);
+   fClassName = node[jsonio::Object]["_typename"].get<std::string>().c_str();
 
-   fClassName = xml->GetAttr(objnode, xmlio::ObjClass);
-*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -166,16 +170,11 @@ TKeyJSON::TKeyJSON(TDirectory *mother, Long64_t keyid, void *keynode)
 
 TKeyJSON::~TKeyJSON()
 {
-/*   if (fKeyNode) {
-      TXMLEngine *xml = XMLEngine();
-      if (xml) {
-         xml->FreeNode(fKeyNode);
-      } else {
-         TXMLEngine xml_;
-         xml_.FreeNode(fKeyNode);
-      }
+   if (fKeyNode) {
+      delete ((nlohmann::json *) fKeyNode);
+      fKeyNode = nullptr;
    }
-*/
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -184,12 +183,11 @@ TKeyJSON::~TKeyJSON()
 
 void TKeyJSON::Delete(Option_t * /*option*/)
 {
-/*   TXMLEngine *xml = XMLEngine();
-   if (fKeyNode && xml) {
-      xml->FreeNode(fKeyNode);
+   if (fKeyNode) {
+      delete ((nlohmann::json *) fKeyNode);
       fKeyNode = nullptr;
    }
-*/
+
    fMotherDir->GetListOfKeys()->Remove(this);
 }
 
@@ -198,24 +196,23 @@ void TKeyJSON::Delete(Option_t * /*option*/)
 
 void TKeyJSON::StoreKeyAttributes()
 {
-/*   TXMLEngine *xml = XMLEngine();
-   TXMLFile *f = (TXMLFile *)GetFile();
-   if (!f || !xml || !fKeyNode)
+   TJSONFile *f = (TJSONFile *)GetFile();
+   if (!f  || !fKeyNode)
       return;
 
-   xml->NewAttr(fKeyNode, nullptr, xmlio::Name, GetName());
+   nlohmann::json node = nlohmann::json::object();
+   node[jsonio::Name]=GetName();
 
-   xml->NewIntAttr(fKeyNode, xmlio::Cycle, fCycle);
+   node[jsonio::Cycle]=fCycle;
 
-   if (f->GetIOVersion() > 1) {
       if (strlen(GetTitle()) > 0)
-         xml->NewAttr(fKeyNode, nullptr, xmlio::Title, GetTitle());
+         node[jsonio::Title]=GetTitle();
       if (f->TestBit(TFile::kReproducible))
-         xml->NewAttr(fKeyNode, nullptr, xmlio::CreateTm, TDatime((UInt_t) 1).AsSQLString());
+         node[jsonio::CreateTm]=TDatime((UInt_t) 1).AsSQLString();
       else
-         xml->NewAttr(fKeyNode, nullptr, xmlio::CreateTm, fDatime.AsSQLString());
-   }
-*/
+         node[jsonio::CreateTm]=fDatime.AsSQLString();
+   
+   (*((nlohmann::json *)fKeyNode))=node;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -223,11 +220,12 @@ void TKeyJSON::StoreKeyAttributes()
 
 void TKeyJSON::StoreObject(const void *obj, const TClass *cl, Bool_t check_tobj)
 {
-/*
-   TXMLFile *f = (TXMLFile *)GetFile();
-   TXMLEngine *xml = XMLEngine();
-   if (!f || !xml || !fKeyNode)
+
+   TJSONFile *f = (TJSONFile *)GetFile();
+   if (!f || !fKeyNode)
       return;
+
+   auto &node = *((nlohmann::json *) fKeyNode);  
 
    if (obj && check_tobj) {
       TClass *actual = TObject::Class()->GetActualClass((TObject *)obj);
@@ -240,21 +238,13 @@ void TKeyJSON::StoreObject(const void *obj, const TClass *cl, Bool_t check_tobj)
 
    StoreKeyAttributes();
 
-   TBufferXML buffer(TBuffer::kWrite, f);
-   buffer.InitMap();
-   if (f->GetIOVersion() == 1)
-      buffer.SetBit(TBuffer::kCannotHandleMemberWiseStreaming, kFALSE);
+   auto json_str = TBufferJSON::ConvertToJSON(obj, cl);
 
-   XMLNodePointer_t node = buffer.XmlWriteAny(obj, cl);
-
-   if (node)
-      xml->AddChildFirst(fKeyNode, node);
-
-   buffer.XmlWriteBlock(fKeyNode);
-
+   node[jsonio::Object] = nlohmann::json::parse(json_str.Data());
+ 
    if (cl)
       fClassName = cl->GetName();
-*/
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -262,15 +252,14 @@ void TKeyJSON::StoreObject(const void *obj, const TClass *cl, Bool_t check_tobj)
 
 void TKeyJSON::UpdateAttributes()
 {
-/*
-   TXMLEngine *xml = XMLEngine();
-   if (!xml || !fKeyNode)
+
+   if (!fKeyNode)
       return;
 
-   xml->FreeAllAttr(fKeyNode);
+   //xml->FreeAllAttr(fKeyNode);
 
    StoreKeyAttributes();
-*/
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -279,25 +268,23 @@ void TKeyJSON::UpdateAttributes()
 
 void TKeyJSON::UpdateObject(TObject *obj)
 {
-/*
-   TXMLFile *f = (TXMLFile *)GetFile();
-   TXMLEngine *xml = XMLEngine();
-   if (!f || !xml || !obj || !fKeyNode)
+   
+   TJSONFile *f = (TJSONFile *)GetFile();
+   if (!f || !obj || !fKeyNode)
       return;
 
-   XMLNodePointer_t objnode = xml->GetChild(fKeyNode);
-   xml->SkipEmpty(objnode);
+   //nlohmann::json objnode = (*((nlohmann::json *)fKeyNode))[jsonio::Object];
 
-   if (!objnode)
-      return;
+   //if (!objnode)
+     // return;
 
-   xml->UnlinkNode(objnode);
-   xml->FreeNode(objnode);
+   //delete objnode;
+     // objnode = nullptr;
 
-   xml->FreeAllAttr(fKeyNode);
+   //xml->FreeAllAttr(fKeyNode);
 
    StoreObject(obj, nullptr, kTRUE);
-*/
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -397,33 +384,17 @@ void *TKeyJSON::ReadObjectAny(const TClass *expectedClass)
 
 void *TKeyJSON::JsonReadAny(void *obj, const TClass *expectedClass)
 {
-/*   if (!fKeyNode)
+   TJSONFile *f = (TJSONFile *)GetFile();
+   if (!fKeyNode || !f)
       return obj;
 
-   TXMLFile *f = (TXMLFile *)GetFile();
-   TXMLEngine *xml = XMLEngine();
-   if (!f || !xml)
-      return obj;
+   std::string json_str = (*((nlohmann::json *)fKeyNode))["Object"].dump();
 
-   TBufferXML buffer(TBuffer::kRead, f);
-   buffer.InitMap();
-   if (f->GetIOVersion() == 1)
-      buffer.SetBit(TBuffer::kCannotHandleMemberWiseStreaming, kFALSE);
-
-   XMLNodePointer_t blocknode = xml->GetChild(fKeyNode);
-   xml->SkipEmpty(blocknode);
-   while (blocknode) {
-      if (strcmp(xml->GetNodeName(blocknode), xmlio::XmlBlock) == 0)
-         break;
-      xml->ShiftToNext(blocknode);
-   }
-   buffer.XmlReadBlock(blocknode);
-
-   XMLNodePointer_t objnode = xml->GetChild(fKeyNode);
-   xml->SkipEmpty(objnode);
+   //(*((nlohmann::json *)fKeyNode))[jsonio::Object] = nlohmann::json::parse(json_str.Data());
 
    TClass *cl = nullptr;
-   void *res = buffer.JsonReadAny(objnode, obj, &cl);
+   // FIXME: need to have TBufferJSON interface that takes a nlohmann::json parameter.
+   void *res = TBufferJSON::ConvertFromJSONAny(json_str.c_str(), &cl);
 
    if (!cl || !res)
       return obj;
@@ -445,7 +416,4 @@ void *TKeyJSON::JsonReadAny(void *obj, const TClass *expectedClass)
    }
 
    return ((char *)res) + delta;
-*/
-
-   return nullptr;
 }

@@ -102,6 +102,7 @@ protected:
 
    void StoreStreamerElement(void *node, TStreamerElement *elem);
    void ReadStreamerElement(void *node, TStreamerInfo *info);
+   //void ReadStreamerElement(int i, int j, TStreamerInfo *info);
 
    Bool_t ReadFromFile();
    Int_t ReadKeysList(TDirectory *dir, void *topnode);
@@ -115,11 +116,9 @@ protected:
 
    void *fDoc{nullptr}; //! JSON document
 
-   void *fStreamerInfoNode{nullptr}; //!  pointer of node with streamer info data
-
    Bool_t fStoreStreamerInfos{kTRUE};  //! should streamer infos stored in JSON file
 
-   Int_t fIOVersion{0}; //! indicates format of ROOT xml file
+   Int_t fIOVersion{0}; //! indicates format of ROOT json file
 
    Long64_t fKeyCounter{0}; //! counter of created keys, used for keys id
 

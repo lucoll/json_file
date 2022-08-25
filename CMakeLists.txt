@@ -9,3 +9,11 @@ ROOT_STANDARD_LIBRARY_PACKAGE(JsonFile
                               HEADERS TJSONFile.h TKeyJSON.h
                               SOURCES TJSONFile.cxx TKeyJSON.cxx
                               DEPENDENCIES ROOT::RIO)
+                              
+#ADD_EXECUTABLE(jsonfiletest testTJSONFile.C )
+
+#SET(GTESTDIR
+#    buildROOT/googletest-prefix/src/googletest/googletest/include/)
+#TARGET_INCLUDE_DIRECTORIES(jsonfiletest PUBLIC ${GTESTDIR})
+#TARGET_LINK_LIBRARIES(jsonfiletest ROOT::RIO)
+
